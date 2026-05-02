@@ -13,13 +13,16 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-!tt^&00ol0gb#=51ym(3^&6md-
 
 DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
+ALLOWED_HOSTS = ['*'] # Simplificado para o Railway não bloquear a entrada
 
+# AJUSTE 2: Origens confiáveis para formulários (Essencial para o login funcionar no Railway)
 CSRF_TRUSTED_ORIGINS = [
-    origin.strip()
-    for origin in os.getenv('CSRF_TRUSTED_ORIGINS', 'http://localhost').split(',')
-    if origin.strip()
+    'https://*.railway.app',
+    'https://*.up.railway.app',
+    'http://localhost',
+    'http://127.0.0.1'
 ]
+
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -65,10 +68,17 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'core.wsgi.application'
 
+if os.getenv('RAILWAY_ENVIRONMENT'):
+    DATABASE_PATH = '/app/data/db.sqlite3'
+    # Cria a pasta do banco se ela não existir no volume
+    os.makedirs('/app/data', exist_ok=True)
+else:
+    DATABASE_PATH = BASE_DIR / 'db.sqlite3'
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'NAME': DATABASE_PATH,
     }
 }
 
@@ -92,7 +102,11 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # Media files
 MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+if os.getenv('RAILWAY_ENVIRONMENT'):
+    MEDIA_ROOT = '/app/data/media'
+else:
+    MEDIA_ROOT = BASE_DIR / 'media'
+
 
 # Auth
 AUTH_USER_MODEL = 'users.User'
@@ -106,7 +120,11 @@ LOGIN_REDIRECT_URL = 'dashboard'
 LOGOUT_REDIRECT_URL = 'landing'
 
 # RAG
-CHROMA_DB_PATH = BASE_DIR / 'chroma_db'
+
+if os.getenv('RAILWAY_ENVIRONMENT'):
+    CHROMA_DB_PATH = '/app/data/chroma_db'
+else:
+    CHROMA_DB_PATH = BASE_DIR / 'chroma_db'
 LLM_PROVIDER = os.getenv('LLM_PROVIDER', 'openai')
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', '')
 AGENT_MODEL = os.getenv('AGENT_MODEL', 'gpt-5.4-mini')
