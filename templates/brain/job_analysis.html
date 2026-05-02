@@ -1,0 +1,211 @@
+{% extends 'base_authenticated.html' %}
+
+{% block inner_content %}
+<!-- Container Principal com estado do Alpine.js -->
+<div class='space-y-8 animate-fade-in' 
+     x-data="{ 
+        detailOpen: false, 
+        candidate: { name: '', score: 0, summary: '', email: '', date: '', status: '' } 
+     }">
+
+    <!-- Breadcrumb + Header -->
+    <div class='flex flex-col gap-2'>
+        <nav class='flex items-center gap-2 text-sm text-gray-500'>
+            <a href="{% url 'hub:job-list' %}" class='hover:text-indigo-400 transition-colors'>Vagas</a>
+            <i data-lucide='chevron-right' class='w-4 h-4'></i>
+            <span class='text-gray-300'>Análise de IA</span>
+        </nav>
+        <div class='flex flex-col md:flex-row md:items-center justify-between gap-4'>
+            <h1 class='text-3xl font-bold text-white tracking-tight'>
+                Dashboard de Análise:
+                <span class='bg-gradient-to-r from-indigo-400 to-violet-500 bg-clip-text text-transparent'>
+                    {{ job.title }}
+                </span>
+            </h1>
+            <a href="{% url 'brain:agent-chat' job.pk %}"
+               class='inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600/20 border border-indigo-500/30 text-indigo-300 font-semibold text-sm hover:bg-indigo-600/30 hover:border-indigo-500/50 transition-all duration-200'>
+                <i data-lucide='bot' class='w-4 h-4'></i>
+                Consultar Agente de RH
+            </a>
+        </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class='flex items-center gap-8 border-b border-white/5'>
+        <a href="{% url 'brain:job-analysis' job.pk %}"
+           class='pb-4 text-sm font-bold border-b-2 border-indigo-500 text-white transition-all'>
+            Análise de IA
+        </a>
+        <a href="{% url 'document-list' job.pk %}"
+           class='pb-4 text-sm font-medium text-gray-500 hover:text-gray-300 transition-all'>
+            Documentos e Candidatos
+        </a>
+    </div>
+
+    <!-- Cards de Métricas -->
+    <div class='grid grid-cols-2 lg:grid-cols-4 gap-4'>
+
+        <div class='p-5 bg-[#111114]/50 border border-white/5 rounded-2xl'>
+            <div class='flex items-center gap-2 mb-3'>
+                <div class='w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center'>
+                    <i data-lucide='users' class='w-4 h-4 text-indigo-400'></i>
+                </div>
+                <span class='text-xs text-gray-400 font-medium uppercase tracking-wider'>Total</span>
+            </div>
+            <p class='text-3xl font-black text-white'>{{ stats.total|default:"0" }}</p>
+            <p class='text-xs text-gray-600 mt-1'>candidatos</p>
+        </div>
+
+        <div class='p-5 bg-[#111114]/50 border border-white/5 rounded-2xl'>
+            <div class='flex items-center gap-2 mb-3'>
+                <div class='w-8 h-8 rounded-lg bg-gray-500/10 flex items-center justify-center'>
+                    <i data-lucide='hourglass' class='w-4 h-4 text-gray-400'></i>
+                </div>
+                <span class='text-xs text-gray-400 font-medium uppercase tracking-wider'>Pendentes</span>
+            </div>
+            <p class='text-3xl font-black text-white'>{{ stats.pending|default:"0" }}</p>
+            <p class='text-xs text-gray-600 mt-1'>aguardando triagem</p>
+        </div>
+
+        <div class='p-5 bg-[#111114]/50 border border-amber-500/10 rounded-2xl'>
+            <div class='flex items-center gap-2 mb-3'>
+                <div class='w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center'>
+                    <i data-lucide='clock' class='w-4 h-4 text-amber-400'></i>
+                </div>
+                <span class='text-xs text-amber-500/70 font-medium uppercase tracking-wider'>Em análise</span>
+            </div>
+            <p class='text-3xl font-black text-amber-400'>{{ stats.reviewing|default:"0" }}</p>
+            <p class='text-xs text-gray-600 mt-1'>em processo</p>
+        </div>
+
+        <div class='p-5 bg-[#111114]/50 border border-emerald-500/10 rounded-2xl'>
+            <div class='flex items-center gap-2 mb-3'>
+                <div class='w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center'>
+                    <i data-lucide='check-circle' class='w-4 h-4 text-emerald-400'></i>
+                </div>
+                <span class='text-xs text-emerald-500/70 font-medium uppercase tracking-wider'>Aprovados</span>
+            </div>
+            <p class='text-3xl font-black text-emerald-400'>{{ stats.approved|default:"0" }}</p>
+            <p class='text-xs text-gray-600 mt-1'>selecionados</p>
+        </div>
+
+    </div>
+
+    <!-- Candidatos Aprovados -->
+    {% if approved_documents %}
+    <div class='bg-[#111114]/50 border border-emerald-500/10 rounded-2xl overflow-hidden'>
+        <div class='flex items-center gap-2 px-6 py-4 border-b border-white/5'>
+            <i data-lucide='check-circle' class='w-4 h-4 text-emerald-400'></i>
+            <h2 class='text-sm font-bold text-white uppercase tracking-wider'>Candidatos Aprovados</h2>
+        </div>
+        <div class='divide-y divide-white/5'>
+            {% for doc in approved_documents %}
+            {% with analysis=doc.analyses.first %}
+            <div class='flex items-center justify-between px-6 py-4 hover:bg-white/[0.02] transition-colors cursor-pointer group'
+                 @click="detailOpen = true; candidate = { 
+                    name: '{{ doc.candidate_name|escapejs }}', 
+                    score: {{ analysis.score|default:0 }}, 
+                    summary: '{{ analysis.summary|escapejs }}', 
+                    email: '{{ doc.candidate_email|escapejs }}',
+                    date: '{{ doc.created_at|date:'d/m/Y' }}',
+                    status: 'Aprovado'
+                 }">
+                <div class='flex items-center gap-4'>
+                    <div class='w-9 h-9 rounded-full bg-gradient-to-tr from-emerald-600 to-teal-600 flex items-center justify-center flex-shrink-0'>
+                        <span class='text-xs font-bold text-white'>{{ doc.candidate_name|first|upper }}</span>
+                    </div>
+                    <div>
+                        <p class='text-sm font-semibold text-white group-hover:text-indigo-400 transition-colors'>{{ doc.candidate_name }}</p>
+                        <p class='text-xs text-gray-500'>{{ doc.candidate_email|default:"E-mail não informado" }}</p>
+                    </div>
+                </div>
+                <div class='flex items-center gap-4'>
+                    {% if analysis and analysis.rag_status == 'done' %}
+                    <div class='flex items-center gap-2'>
+                        <div class='w-24 h-1.5 bg-white/5 rounded-full overflow-hidden'>
+                            <div class='h-full bg-emerald-500 rounded-full'
+                                 style='width: {{ analysis.score }}%'></div>
+                        </div>
+                        <span class='text-xs font-bold text-emerald-400'>{{ analysis.score }}%</span>
+                    </div>
+                    {% endif %}
+                    <span class='px-2.5 py-1 rounded-full text-[10px] font-bold uppercase bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'>
+                        Aprovado
+                    </span>
+                </div>
+            </div>
+            {% endwith %}
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Candidatos Em Análise -->
+    {% if reviewing_documents %}
+    <div class='bg-[#111114]/50 border border-amber-500/10 rounded-2xl overflow-hidden'>
+        <div class='flex items-center gap-2 px-6 py-4 border-b border-white/5'>
+            <i data-lucide='clock' class='w-4 h-4 text-amber-400'></i>
+            <h2 class='text-sm font-bold text-white uppercase tracking-wider'>Em Análise</h2>
+        </div>
+        <div class='divide-y divide-white/5'>
+            {% for doc in reviewing_documents %}
+            {% with analysis=doc.analyses.first %}
+            <div class='flex items-center justify-between px-6 py-4 hover:bg-white/[0.02] transition-colors cursor-pointer group'
+                 @click="detailOpen = true; candidate = {
+                    id: '{{ doc.pk }}', 
+                    name: '{{ doc.candidate_name|escapejs }}', 
+                    score: {{ analysis.score|default:0 }}, 
+                    summary: '{{ analysis.summary|escapejs }}', 
+                    email: '{{ doc.candidate_email|escapejs }}',
+                    date: '{{ doc.created_at|date:'d/m/Y' }}',
+                    status: 'Em análise'
+                 }">
+                <div class='flex items-center gap-4'>
+                    <div class='w-9 h-9 rounded-full bg-gradient-to-tr from-amber-600 to-orange-600 flex items-center justify-center flex-shrink-0'>
+                        <span class='text-xs font-bold text-white'>{{ doc.candidate_name|first|upper }}</span>
+                    </div>
+                    <div>
+                        <p class='text-sm font-semibold text-white group-hover:text-indigo-400 transition-colors'>{{ doc.candidate_name }}</p>
+                        <p class='text-xs text-gray-500'>{{ doc.candidate_email|default:"E-mail não informado" }}</p>
+                    </div>
+                </div>
+                <div class='flex items-center gap-4'>
+                    {% if analysis and analysis.rag_status == 'done' %}
+                    <div class='flex items-center gap-2'>
+                        <div class='w-24 h-1.5 bg-white/5 rounded-full overflow-hidden'>
+                            <div class='h-full bg-amber-500 rounded-full'
+                                 style='width: {{ analysis.score }}%'></div>
+                        </div>
+                        <span class='text-xs font-bold text-amber-400'>{{ analysis.score }}%</span>
+                    </div>
+                    {% endif %}
+                    <span class='px-2.5 py-1 rounded-full text-[10px] font-bold uppercase bg-amber-500/10 text-amber-400 border border-amber-500/20'>
+                        Em análise
+                    </span>
+                </div>
+            </div>
+            {% endwith %}
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Estado vazio -->
+    {% if not approved_documents and not reviewing_documents %}
+    <div class='py-16 flex flex-col items-center justify-center text-center bg-[#111114]/30 border border-dashed border-white/5 rounded-2xl gap-3'>
+        <div class='w-12 h-12 bg-white/5 rounded-full flex items-center justify-center text-gray-600'>
+            <i data-lucide='inbox' class='w-6 h-6'></i>
+        </div>
+        <p class='text-gray-400 font-medium'>Nenhum candidato aprovado ou em análise ainda.</p>
+        <a href="{% url 'document-list' job.pk %}"
+           class='text-sm text-indigo-400 hover:text-indigo-300 transition-colors'>
+            Ir para candidatos →
+        </a>
+    </div>
+    {% endif %}
+
+    <!-- Drawer de Detalhes (Adicionado) -->
+    {% include 'brain/partials/_candidate_detail_drawer.html' %}
+
+</div>
+{% endblock %}

@@ -1,0 +1,54 @@
+{% extends 'base.html' %} 
+
+{% block content %}
+<div class='min-h-screen bg-[#0a0a0c] text-white flex items-center justify-center p-6'>
+    <div class='max-w-xl w-full'>
+        
+        <!-- Logo/Branding -->
+        <div class='text-center mb-10'>
+            <div class='inline-flex items-center gap-2 mb-4'>
+                <div class='w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center'>
+                    <i data-lucide='brain-circuit' class='w-5 h-5'></i>
+                </div>
+                <span class='text-xl font-bold tracking-tighter'>Crivopy</span>
+            </div>
+            <h1 class='text-3xl font-extrabold'>Candidate-se para <span class='text-indigo-500'>{{ job.title }}</span></h1>
+            <p class='text-gray-400 mt-2 italic'>Analise de recrutamento potencializada por IA</p>
+        </div>
+
+        <!-- Descrição da Vaga -->
+        <div class='bg-white/5 border border-white/10 p-6 rounded-2xl mb-8'>
+            <h2 class='text-sm font-bold text-indigo-400 uppercase tracking-widest mb-3'>Sobre a vaga</h2>
+            <p class='text-gray-300 text-sm leading-relaxed'>{{ job.description|linebreaks }}</p>
+        </div>
+
+        <!-- Formulário de Inscrição -->
+        <div class='bg-[#111114] border border-white/5 p-8 rounded-3xl shadow-2xl relative overflow-hidden'>
+            <div class='absolute top-0 right-0 p-4 opacity-5'>
+                <i data-lucide='user-plus' class='w-20 h-20'></i>
+            </div>
+
+            <form method='post' enctype='multipart/form-data' class='space-y-6 relative'>
+                {% csrf_token %}
+                {% for field in form %}
+                    <div class='space-y-2'>
+                        <label class='text-xs font-bold text-gray-400 uppercase'>{{ field.label }}</label>
+                        {{ field }}
+                        {% if field.errors %}<p class='text-red-500 text-xs mt-1'>{{ field.errors.0 }}</p>{% endif %}
+                    </div>
+                {% endfor %}
+
+                <button type='submit' class='w-full py-4 bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-bold rounded-xl hover:shadow-lg hover:shadow-indigo-500/20 transition-all active:scale-95 flex items-center justify-center gap-2'>
+                    Enviar Candidatura
+                    <i data-lucide='arrow-right' class='w-4 h-4'></i>
+                </button>
+            </form>
+        </div>
+        
+        <p class='text-center text-gray-600 text-[10px] mt-8 uppercase tracking-widest'>
+            Powered by Crivopy AI Recruitment
+        </p>
+    </div>
+</div>
+<script>lucide.createIcons();</script>
+{% endblock %}

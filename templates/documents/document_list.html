@@ -1,0 +1,230 @@
+{% extends 'base_authenticated.html' %}
+
+{% block inner_content %}
+<div class='space-y-8 animate-fade-in' x-data="{ selected: null }">
+    <div class='flex flex-col md:flex-row md:items-center justify-between gap-4'>
+        <div>
+            <div class='flex items-center gap-2 text-indigo-400 text-sm font-medium mb-1'>
+                <i data-lucide='briefcase' class='w-4 h-4'></i>
+                Vaga: {{ job.title }}
+            </div>
+            <h1 class='text-3xl font-bold text-white tracking-tight'>Candidatos e <span class='text-violet-500'>Currículos</span></h1>
+        </div>
+
+        <a href="{% url 'document-upload' job.pk %}" class='inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-bold rounded-xl hover:shadow-lg hover:shadow-indigo-500/25 transition-all active:scale-95'>
+            <i data-lucide='upload-cloud' class='w-5 h-5'></i>
+            Adicionar Candidato
+        </a>
+    </div>
+
+    <div class='flex items-center gap-8 border-b border-white/5 mb-8'>
+        <a href="{% url 'brain:job-analysis' job.pk %}"
+           class='pb-4 text-sm font-medium text-gray-500 hover:text-gray-300 transition-all'>
+            Análise de IA
+        </a>
+        <a href="{% url 'document-list' job.pk %}"
+           class='pb-4 text-sm font-bold border-b-2 border-indigo-500 text-white transition-all'>
+            Documentos e Candidatos
+        </a>
+    </div>
+
+    <!-- Toast de feedback -->
+    <div id='status-toast' class='hidden fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-3 rounded-2xl bg-gray-900 border border-gray-700 shadow-2xl shadow-black/40 transition-all duration-300'>
+        <i data-lucide='check-circle' class='w-4 h-4 text-emerald-400'></i>
+        <span id='status-toast-msg' class='text-sm font-medium text-gray-200'>Status atualizado</span>
+    </div>
+
+    <div class='bg-[#111114]/50 border border-white/5 rounded-3xl overflow-hidden backdrop-blur-sm'>
+        <div class='overflow-x-auto'>
+            <table class='w-full text-left border-collapse'>
+                <thead>
+                    <tr class='border-b border-white/5 bg-white/5'>
+                        <th class='px-6 py-4 text-sm font-semibold text-gray-300'>Candidato</th>
+                        <th class='px-6 py-4 text-sm font-semibold text-gray-300'>Status Triagem</th>
+                        <th class='px-6 py-4 text-sm font-semibold text-gray-300'>Status IA</th>
+                        <th class='px-6 py-4 text-sm font-semibold text-gray-300'>Match Score</th>
+                        <th class='px-6 py-4 text-sm font-semibold text-gray-300 text-right'>Ações</th>
+                    </tr>
+                </thead>
+                <tbody class='divide-y divide-white/5'>
+                    {% for doc in documents %}
+                    <tr class='hover:bg-white/[0.02] transition-colors group border-b border-white/5'>
+
+                        <!-- Candidato -->
+                        <td class='px-6 py-6'>
+                            <div class='flex flex-col'>
+                                <span class='text-white font-bold group-hover:text-indigo-400 transition-colors'>{{ doc.candidate_name }}</span>
+                                <span class='text-gray-500 text-xs'>{{ doc.candidate_email }}</span>
+                            </div>
+                        </td>
+
+                        <!-- Status Triagem — atualização assíncrona via fetch -->
+                        <td class='px-6 py-6'>
+                            <select
+                                data-doc-id='{{ doc.pk }}'
+                                data-url="{% url 'document-status' doc.pk %}"
+                                onchange='updateStatus(this)'
+                                style='background-color: #111827; color-scheme: dark;'
+                                class='status-select text-xs font-semibold rounded-full px-3 py-1.5 border cursor-pointer focus:outline-none transition-all duration-200
+                                {% if doc.status == "pending" %}text-gray-400 border-white/10
+                                {% elif doc.status == "reviewing" %}text-amber-400 border-amber-500/20
+                                {% elif doc.status == "approved" %}text-emerald-400 border-emerald-500/20
+                                {% elif doc.status == "rejected" %}text-red-400 border-red-500/20
+                                {% endif %}'>
+                                <option value='pending'   {% if doc.status == 'pending' %}selected{% endif %}>Pendente</option>
+                                <option value='reviewing' {% if doc.status == 'reviewing' %}selected{% endif %}>Em análise</option>
+                                <option value='approved'  {% if doc.status == 'approved' %}selected{% endif %}>Aprovado</option>
+                                <option value='rejected'  {% if doc.status == 'rejected' %}selected{% endif %}>Reprovado</option>
+                            </select>
+                        </td>
+
+                        <!-- Status IA -->
+                        <td class='px-6 py-6'>
+                            {% with analysis=doc.analyses.first %}
+                                {% if not analysis or analysis.rag_status == 'pending' %}
+                                    <span class='px-3 py-1 rounded-full text-[10px] font-bold uppercase bg-gray-500/10 text-gray-500 border border-white/5'>Aguardando IA</span>
+                                {% elif analysis.rag_status == 'processing' %}
+                                    <span class='inline-flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-bold uppercase bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'>
+                                        <i data-lucide='loader-2' class='w-3 h-3 animate-spin'></i> Processando
+                                    </span>
+                                {% elif analysis.rag_status == 'done' %}
+                                    <span class='px-3 py-1 rounded-full text-[10px] font-bold uppercase bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'>Analisado</span>
+                                {% elif analysis.rag_status == 'error' %}
+                                    <span class='px-3 py-1 rounded-full text-[10px] font-bold uppercase bg-red-500/10 text-red-400 border border-red-500/20'>Erro IA</span>
+                                {% endif %}
+                            {% endwith %}
+                        </td>
+
+                        <!-- Match Score -->
+                        <td class='px-6 py-6 w-48'>
+                            {% with analysis=doc.analyses.first %}
+                                {% if analysis and analysis.rag_status == 'done' %}
+                                    <div class='space-y-1.5'>
+                                        <div class='flex justify-between text-[10px] font-bold'>
+                                            <span class='text-gray-400 uppercase'>Match Score</span>
+                                            <span class='text-indigo-400'>{{ analysis.score }}%</span>
+                                        </div>
+                                        <div class='h-1.5 w-full bg-white/5 rounded-full overflow-hidden'>
+                                            <div class='h-full bg-indigo-500 rounded-full'
+                                                 style='width: {{ analysis.score }}%'></div>
+                                        </div>
+                                    </div>
+                                {% else %}
+                                    <span class='text-gray-600 text-xs italic'>Indisponível</span>
+                                {% endif %}
+                            {% endwith %}
+                        </td>
+
+                        <!-- Ações -->
+                        <td class='px-6 py-6 text-right'>
+                            <div class='flex items-center justify-end gap-2'>
+                                <button @click="selected === {{ doc.pk }} ? selected = null : selected = {{ doc.pk }}"
+                                        class='p-2.5 text-gray-400 hover:text-white hover:bg-white/5 rounded-xl transition-all'>
+                                    <i data-lucide='message-square-more' class='w-4 h-4'></i>
+                                </button>
+
+                                {% with analysis=doc.analyses.first %}
+                                    {% if not analysis or analysis.rag_status != 'done' %}
+                                    <form method='post' action="{% url 'brain:document-analyze' doc.pk %}">
+                                        {% csrf_token %}
+                                        <button type='submit'
+                                                title='Analisar com IA'
+                                                class='p-2.5 text-gray-400 hover:text-indigo-400 hover:bg-indigo-500/5 rounded-xl transition-all'>
+                                            <i data-lucide='sparkles' class='w-4 h-4'></i>
+                                        </button>
+                                    </form>
+                                    {% else %}
+                                    <span class='p-2.5 text-emerald-400' title='Análise concluída'>
+                                        <i data-lucide='check-circle' class='w-4 h-4'></i>
+                                    </span>
+                                    {% endif %}
+                                {% endwith %}
+
+                                <a href="{{ doc.file.url }}" target='_blank'
+                                   class='p-2.5 text-gray-400 hover:text-white hover:bg-white/5 rounded-xl transition-all'>
+                                    <i data-lucide='external-link' class='w-4 h-4'></i>
+                                </a>
+                                <a href="{% url 'document-delete' doc.pk %}"
+                                   class='p-2.5 text-gray-400 hover:text-red-400 hover:bg-red-500/5 rounded-xl transition-all'>
+                                    <i data-lucide='trash-2' class='w-4 h-4'></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan='5' class='px-6 py-20 text-center text-gray-500'>Nenhum currículo enviado.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    const CSRF_TOKEN = '{{ csrf_token }}';
+
+    const STATUS_CLASSES = {
+        pending:   'text-gray-400 border-white/10',
+        reviewing: 'text-amber-400 border-amber-500/20',
+        approved:  'text-emerald-400 border-emerald-500/20',
+        rejected:  'text-red-400 border-red-500/20',
+    };
+
+    async function updateStatus(select) {
+        const url = select.dataset.url;
+        const status = select.value;
+
+        // Atualiza a cor do select imediatamente
+        select.className = select.className
+            .replace(/text-\w+-\d+\s*/g, '')
+            .replace(/border-\w+\/\d+\s*/g, '');
+
+        select.classList.add(...STATUS_CLASSES[status].split(' '));
+
+        try {
+            const formData = new FormData();
+            formData.append('status', status);
+            formData.append('csrfmiddlewaretoken', CSRF_TOKEN);
+
+            const response = await fetch(url, {
+                method: 'POST',
+                body: formData,
+            });
+
+            if (response.ok || response.redirected) {
+                showToast('Status atualizado com sucesso.', 'success');
+            } else {
+                showToast('Erro ao atualizar status.', 'error');
+            }
+        } catch (err) {
+            showToast('Erro de conexão. Tente novamente.', 'error');
+        }
+    }
+
+    let toastTimer = null;
+
+    function showToast(msg, type = 'success') {
+        const toast = document.getElementById('status-toast');
+        const toastMsg = document.getElementById('status-toast-msg');
+        const icon = toast.querySelector('i');
+
+        toastMsg.textContent = msg;
+
+        if (type === 'error') {
+            icon.setAttribute('data-lucide', 'x-circle');
+            icon.className = 'w-4 h-4 text-red-400';
+        } else {
+            icon.setAttribute('data-lucide', 'check-circle');
+            icon.className = 'w-4 h-4 text-emerald-400';
+        }
+
+        lucide.createIcons();
+        toast.classList.remove('hidden');
+
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => toast.classList.add('hidden'), 2500);
+    }
+</script>
+{% endblock %}

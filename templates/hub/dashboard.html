@@ -1,0 +1,224 @@
+{% extends 'base_authenticated.html' %}
+
+{% block inner_content %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<div class='space-y-8 animate-fade-in'>
+
+    <!-- Cabeçalho -->
+    <div class='flex flex-col md:flex-row md:items-center justify-between gap-4'>
+        <div>
+            <h1 class='text-3xl font-bold text-white tracking-tight'>
+                Dashboard <span class='text-indigo-500'>Recrutador</span>
+            </h1>
+            <p class='text-gray-400 mt-1'>Resumo das suas atividades e métricas.</p>
+        </div>
+        <a href="{% url 'hub:job-create' %}"
+           class='inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-semibold rounded-xl hover:shadow-lg transition-all duration-200 active:scale-95'>
+            <i data-lucide='plus' class='w-5 h-5'></i>
+            Nova Vaga
+        </a>
+    </div>
+
+    <!-- Layout em Grid Principal -->
+    <div class='grid grid-cols-1 lg:grid-cols-3 gap-8 items-start'>
+        
+        <!-- Coluna da Esquerda (KPIs + Gráficos) - Ocupa 2/3 -->
+        <div class='lg:col-span-2 space-y-8'>
+            
+            <!-- Grid de Métricas (Compactado para 2 colunas para caber na lateral) -->
+            <div class='grid grid-cols-1 sm:grid-cols-2 gap-4'>
+                <!-- Vagas Ativas -->
+                <div class='p-6 bg-[#111114]/50 border border-white/5 rounded-2xl flex items-center gap-4'>
+                    <div class='w-12 h-12 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-400 border border-indigo-500/20'>
+                        <i data-lucide='briefcase' class='w-6 h-6'></i>
+                    </div>
+                    <div>
+                        <p class='text-xs text-gray-500 uppercase font-bold tracking-wider'>Vagas Ativas</p>
+                        <p class='text-2xl font-bold text-white'>{{ active_jobs_count|default:"0" }}</p>
+                    </div>
+                </div>
+                <!-- Documentos -->
+                <div class='p-6 bg-[#111114]/50 border border-white/5 rounded-2xl flex items-center gap-4'>
+                    <div class='w-12 h-12 rounded-xl bg-violet-500/10 flex items-center justify-center text-violet-400 border border-violet-500/20'>
+                        <i data-lucide='file-text' class='w-6 h-6'></i>
+                    </div>
+                    <div>
+                        <p class='text-xs text-gray-500 uppercase font-bold tracking-wider'>Currículos</p>
+                        <p class='text-2xl font-bold text-white'>{{ total_documents_count|default:"0" }}</p>
+                    </div>
+                </div>
+                <!-- Pendentes -->
+                <div class='p-6 bg-[#111114]/50 border border-white/5 rounded-2xl flex items-center gap-4'>
+                    <div class='w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-400 border border-amber-500/20'>
+                        <i data-lucide='clock' class='w-6 h-6'></i>
+                    </div>
+                    <div>
+                        <p class='text-xs text-gray-500 uppercase font-bold tracking-wider'>Pendentes</p>
+                        <p class='text-2xl font-bold text-white'>{{ pending_documents_count|default:"0" }}</p>
+                    </div>
+                </div>
+                <!-- Aprovados -->
+                <div class='p-6 bg-[#111114]/50 border border-white/5 rounded-2xl flex items-center gap-4'>
+                    <div class='w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-400 border border-emerald-500/20'>
+                        <i data-lucide='check-circle' class='w-6 h-6'></i>
+                    </div>
+                    <div>
+                        <p class='text-xs text-gray-500 uppercase font-bold tracking-wider'>Aprovados</p>
+                        <p class='text-2xl font-bold text-white'>{{ approved_documents_count|default:"0" }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Gráficos -->
+            <div class='space-y-6'>
+                <div class='p-6 bg-[#111114]/50 border border-white/5 rounded-3xl'>
+                    <div class='flex items-center justify-between mb-6'>
+                        <div class='flex items-center gap-2'>
+                            <i data-lucide='trending-up' class='w-4 h-4 text-indigo-400'></i>
+                            <h2 class='text-sm font-bold text-white uppercase tracking-wider'>Evolução semanal</h2>
+                        </div>
+                    </div>
+                    <div class='h-[200px]'><canvas id='evolutionChart'></canvas></div>
+                </div>
+
+                <div class='p-6 bg-[#111114]/50 border border-white/5 rounded-3xl'>
+                    <div class='flex items-center justify-between mb-6'>
+                        <div class='flex items-center gap-2'>
+                            <i data-lucide='bar-chart-2' class='w-4 h-4 text-violet-400'></i>
+                            <h2 class='text-sm font-bold text-white uppercase tracking-wider'>Pipeline</h2>
+                        </div>
+                        <select id='pipeline-job-filter' class='bg-transparent border-none text-[10px] text-gray-400 font-bold uppercase focus:ring-0 cursor-pointer'>
+                            <option value='all' class='bg-[#111114]'>Geral</option>
+                            {% for job in available_jobs %}<option value='{{ job.id }}' class='bg-[#111114]'>{{ job.title }}</option>{% endfor %}
+                        </select>
+                    </div>
+                    <div class='h-[200px]'><canvas id='pipelineChart'></canvas></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Coluna da Direita (Atividade Recente) - Ocupa 1/3 e é Sticky -->
+        <div class='lg:col-span-1'>
+            <div class='bg-[#111114]/50 border border-white/5 rounded-3xl overflow-hidden sticky top-8'>
+                <div class='p-6 border-b border-white/5 flex items-center gap-2'>
+                    <i data-lucide='activity' class='w-4 h-4 text-indigo-400'></i>
+                    <h2 class='text-sm font-bold text-white uppercase tracking-wider'>Recentes</h2>
+                </div>
+
+                <div class='divide-y divide-white/5'>
+                    {% if recent_documents %}
+                        {% for doc in recent_documents %}
+                        <div class='p-4 hover:bg-white/[0.02] transition-colors'>
+                            <div class='flex items-center gap-3 mb-2'>
+                                <div class='w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center flex-shrink-0 text-[10px] font-bold text-white'>
+                                    {{ doc.candidate_name|first|upper }}
+                                </div>
+                                <div class='min-w-0'>
+                                    <p class='text-sm font-semibold text-white truncate'>{{ doc.candidate_name }}</p>
+                                    <p class='text-[10px] text-gray-500 truncate'>{{ doc.job.title }}</p>
+                                </div>
+                            </div>
+                            <div class='flex items-center justify-between'>
+                                <span class='px-2 py-0.5 rounded-full text-[9px] font-black uppercase {% if doc.status == "approved" %}bg-emerald-500/10 text-emerald-400{% else %}bg-gray-500/10 text-gray-400{% endif %}'>
+                                    {{ doc.status }}
+                                </span>
+                                <span class='text-[10px] text-gray-600'>{{ doc.created_at|date:"d/m" }}</span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class='p-12 text-center text-gray-600 text-xs italic'>Nenhum candidato recente.</div>
+                    {% endif %}
+                </div>
+                <div class='p-4 bg-white/[0.02] text-center'>
+                    <a href="{% url 'hub:job-list' %}" class='text-[10px] text-indigo-400 font-bold uppercase hover:text-indigo-300'>Ver todas as vagas</a>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- Data scripts e Chart.js logic (MANTIDOS) -->
+{{ evolution_labels|json_script:"evolution-labels-data" }}
+{{ evolution_values|json_script:"evolution-values-data" }}
+{{ pipeline_labels|json_script:"pipeline-labels-data" }}
+{{ pipeline_values|json_script:"pipeline-values-data" }}
+
+<script>
+    const evolutionLabels = JSON.parse(document.getElementById('evolution-labels-data').textContent);
+    const evolutionValues = JSON.parse(document.getElementById('evolution-values-data').textContent);
+    const pipelineLabels = JSON.parse(document.getElementById('pipeline-labels-data').textContent);
+    const pipelineValues = JSON.parse(document.getElementById('pipeline-values-data').textContent);
+
+    Chart.defaults.color = '#6b7280';
+    Chart.defaults.font.family = "'Inter', sans-serif";
+    Chart.defaults.borderColor = 'rgba(255, 255, 255, 0.05)';
+
+    const ctxEvo = document.getElementById('evolutionChart').getContext('2d');
+    const evoGradient = ctxEvo.createLinearGradient(0, 0, 0, 200);
+    evoGradient.addColorStop(0, 'rgba(99, 102, 241, 0.2)');
+    evoGradient.addColorStop(1, 'rgba(99, 102, 241, 0)');
+
+    new Chart(ctxEvo, {
+        type: 'line',
+        data: {
+            labels: evolutionLabels,
+            datasets: [{
+                label: 'Candidatos',
+                data: evolutionValues,
+                borderColor: '#6366f1',
+                backgroundColor: evoGradient,
+                fill: true,
+                tension: 0.4,
+                borderWidth: 2,
+                pointRadius: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } }, x: { grid: { display: false } } }
+        }
+    });
+
+    const ctxPipe = document.getElementById('pipelineChart').getContext('2d');
+    const pipelineChart = new Chart(ctxPipe, {
+        type: 'bar',
+        data: {
+            labels: pipelineLabels,
+            datasets: [{
+                data: pipelineValues,
+                backgroundColor: ['rgba(107, 114, 128, 0.2)', 'rgba(251, 191, 36, 0.2)', 'rgba(16, 185, 129, 0.2)', 'rgba(239, 68, 68, 0.2)'],
+                borderColor: ['#6b7280', '#fbbf24', '#10b981', '#ef4444'],
+                borderWidth: 1,
+                borderRadius: 6
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { x: { beginAtZero: true, ticks: { stepSize: 1 } }, y: { grid: { display: false } } }
+        }
+    });
+
+    document.getElementById('pipeline-job-filter').addEventListener('change', function() {
+        const jobId = this.value;
+        const url = `{% url 'hub:pipeline-data-api' %}?job=${jobId}`;
+        fetch(url).then(r => r.json()).then(data => {
+            pipelineChart.data.labels = data.labels;
+            pipelineChart.data.datasets[0].data = data.values;
+            pipelineChart.update();
+        });
+    });
+</script>
+
+<style>
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
+</style>
+{% endblock %}
