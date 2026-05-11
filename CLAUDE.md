@@ -15,7 +15,7 @@ Documentação completa em `docs/`. PRD completo em `docs/../PRD.md`.
 ## Stack
 
 - **Python 3.13** + **Django 5.x** — full stack, sem API REST separada
-- **SQLite** — banco de dados padrão do Django, sem configuração adicional
+- **Execução recomendada:** Docker Compose (`make up` / `make up-build`) — app + **PostgreSQL** no compose; SQLite só fora do Docker quando `POSTGRES_DB` não está definido
 - **Django Template Language** + **TailwindCSS via CDN** — frontend server-side
 - **PyMuPDF**, **Sentence Transformers**, **ChromaDB**, **OpenAI** — pipeline RAG
 

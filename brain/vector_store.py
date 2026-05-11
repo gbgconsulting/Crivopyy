@@ -1,76 +1,84 @@
+import logging
+from typing import Any, List
+
 import chromadb
 from chromadb.config import Settings
 from django.conf import settings
-from sentence_transformers import SentenceTransformer
-from typing import List, Dict, Any
+from openai import OpenAI
 
-# Task 5B.3.2: Initialize persistent ChromaDB client
+logger = logging.getLogger(__name__)
+
+OPENAI_EMBEDDINGS_COLLECTION = 'crivopy_resumes_openai'
+
 chroma_client = chromadb.PersistentClient(
     path=str(settings.CHROMA_DB_PATH),
-    settings=Settings(allow_reset=True)
+    settings=Settings(allow_reset=True),
 )
 
-_model_instance = None
 
-def get_embedding_model():
-    """Carrega o modelo apenas quando for necessário (Lazy Loading)."""
-    global _model_instance
-    if _model_instance is None:
-        print('--- CARREGANDO MODELO DE IA PELA PRIMEIRA VEZ ---')
-        _model_instance = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
-    return _model_instance
+_openai_client: OpenAI | None = None
 
-def get_or_create_collection(collection_name: str = 'crivopy_resumes'):
-    '''
-    Task 5B.3.3: Return the ChromaDB collection.
-    '''
+
+def _get_openai_client() -> OpenAI:
+    global _openai_client
+    if _openai_client is None:
+        _openai_client = OpenAI(api_key=settings.OPENAI_API_KEY)
+    return _openai_client
+
+
+def _embed_openai_batch(texts: List[str]) -> List[List[float]]:
+    if not texts:
+        return []
+    if not settings.OPENAI_API_KEY:
+        raise ValueError('OPENAI_API_KEY is not configured')
+    model_name = getattr(settings, 'OPENAI_EMBEDDING_MODEL', 'text-embedding-3-small')
+    resp = _get_openai_client().embeddings.create(model=model_name, input=texts)
+    ordered = sorted(resp.data, key=lambda d: d.index)
+    return [row.embedding for row in ordered]
+
+
+def get_or_create_collection(collection_name: str = OPENAI_EMBEDDINGS_COLLECTION):
+    '''Return o client ChromaDB collection (embedding OpenAI, dimensões distintas do índice legado MiniLM).'''
     return chroma_client.get_or_create_collection(name=collection_name)
+
 
 def index_document_chunks(document_id: int, chunks: List[str]) -> None:
     '''
-    Task 5B.3.4: Generate embeddings and index chunks into ChromaDB.
+    Generate embeddings via OpenAI and index chunks into ChromaDB.
     '''
     if not chunks:
         return
 
     collection = get_or_create_collection()
-    
-    # CORREÇÃO AQUI: Chamamos a função para obter o modelo
-    model = get_embedding_model()
-    embeddings = model.encode(chunks).tolist()
-    
+
+    embeddings = _embed_openai_batch(chunks)
+
     ids = [f'doc_{document_id}_chunk_{i}' for i in range(len(chunks))]
-    metadatas = [{'document_id': document_id} for _ in range(len(chunks))]
-    
+    metadatas: List[dict[str, Any]] = [{'document_id': document_id} for _ in range(len(chunks))]
+
     collection.add(
         ids=ids,
         embeddings=embeddings,
         metadatas=metadatas,
-        documents=chunks
+        documents=chunks,
     )
+
 
 def search_similar_chunks(query: str, document_id: int, n_results: int = 5) -> List[str]:
-    '''
-    Task 5B.3.5: Search semanticly similar chunks filtered by document_id.
-    '''
+    '''Semantic search filtered by document_id.'''
     collection = get_or_create_collection()
-    
-    # CORREÇÃO AQUI: Chamamos a função para obter o modelo
-    model = get_embedding_model()
-    query_embedding = model.encode([query]).tolist()
-    
+
+    query_embeddings = _embed_openai_batch([query])
     results = collection.query(
-        query_embeddings=query_embedding,
+        query_embeddings=query_embeddings,
         n_results=n_results,
-        where={'document_id': document_id}
+        where={'document_id': document_id},
     )
-    
-    # CORREÇÃO DA LINHA 73: Adicionado o '[]' após o else
+
     return results['documents'][0] if results['documents'] else []
 
+
 def delete_document_chunks(document_id: int) -> None:
-    '''
-    Task 5B.3.6: Remove all chunks associated with a specific document.
-    '''
+    '''Remove all chunks associated with a specific document.'''
     collection = get_or_create_collection()
     collection.delete(where={'document_id': document_id})

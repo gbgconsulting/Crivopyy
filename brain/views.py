@@ -4,7 +4,6 @@ from django.db.models import Count
 from django.shortcuts import get_object_or_404, redirect
 from django.contrib import messages
 from django.http import JsonResponse
-from opentelemetry import context
 
 # Importações dos modelos das outras apps
 from hub.models import Job

@@ -15,11 +15,7 @@ chromadb             # banco vetorial persistido em disco
 openai               # chamada ao LLM (GPT-4o-mini)
 ```
 
-Instalar com:
-
-```bash
-pip install pymupdf sentence-transformers chromadb openai
-```
+As dependências já vêm na imagem Docker (`requirements.txt`). Para rodar o projeto, use Docker (`make up-build`), não `pip`/`python3` no host.
 
 Configuração necessária em `settings.py`:
 

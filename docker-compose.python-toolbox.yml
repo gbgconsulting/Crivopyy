@@ -1,0 +1,20 @@
+# Python 3.13 oficial, sem instalar dependencias do projeto aqui.
+# O processo principal e `sleep infinity` — o container permanece de pe.
+#
+# Subir:   docker compose -f docker-compose.python-toolbox.yml up -d   (host:8000 -> container:8000)
+# Entrar: docker compose -f docker-compose.python-toolbox.yml exec -it python313 bash
+# Parar:   docker compose -f docker-compose.python-toolbox.yml down
+
+services:
+  python313:
+    image: python:3.13-slim
+    container_name: crivopy-python313
+    working_dir: /workspace
+    volumes:
+      - .:/workspace
+    ports:
+      - '0.0.0.0:8000:8000'
+    command: ['sleep', 'infinity']
+    stdin_open: true
+    tty: true
+    restart: unless-stopped

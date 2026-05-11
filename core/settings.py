@@ -9,19 +9,33 @@ load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+
+def _env_csv(name, defaults):
+    raw = os.getenv(name)
+    if not raw or not raw.strip():
+        return list(defaults)
+    return [x.strip() for x in raw.split(',') if x.strip()]
+
+
+def _merge_unique(base: tuple[str, ...], from_env_var: str) -> list[str]:
+    '''Junta valores do .env aos de base, sem repetir ordem-preservada primeiro o que veio da env.'''
+    return list(dict.fromkeys(_env_csv(from_env_var, base) + list(base)))
+
+
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-!tt^&00ol0gb#=51ym(3^&6md-en@(+yvbll5*f85rd%w&8_gv')
 
 DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
-ALLOWED_HOSTS = ['*'] # Simplificado para o Railway não bloquear a entrada
+_LOCAL_ALLOWED_HOSTS = ('localhost', '127.0.0.1', '0.0.0.0')
+ALLOWED_HOSTS = _merge_unique(_LOCAL_ALLOWED_HOSTS, 'ALLOWED_HOSTS')
 
-# AJUSTE 2: Origens confiáveis para formulários (Essencial para o login funcionar no Railway)
-CSRF_TRUSTED_ORIGINS = [
-    'https://*.railway.app',
-    'https://*.up.railway.app',
+_LOCAL_CSRF_ORIGINS = (
+    'http://localhost:8000',
+    'http://127.0.0.1:8000',
     'http://localhost',
-    'http://127.0.0.1'
-]
+    'http://127.0.0.1',
+)
+CSRF_TRUSTED_ORIGINS = _merge_unique(_LOCAL_CSRF_ORIGINS, 'CSRF_TRUSTED_ORIGINS')
 
 
 INSTALLED_APPS = [
@@ -68,19 +82,26 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'core.wsgi.application'
 
-if os.getenv('RAILWAY_ENVIRONMENT'):
-    DATABASE_PATH = '/app/data/db.sqlite3'
-    # Cria a pasta do banco se ela não existir no volume
-    os.makedirs('/app/data', exist_ok=True)
+# Database: PostgreSQL when POSTGRES_DB is set (e.g. Docker Compose); else SQLite.
+if os.getenv('POSTGRES_DB'):
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.environ['POSTGRES_DB'],
+            'USER': os.environ.get('POSTGRES_USER', 'postgres'),
+            'PASSWORD': os.environ.get('POSTGRES_PASSWORD', ''),
+            'HOST': os.environ.get('POSTGRES_HOST', 'localhost'),
+            'PORT': os.environ.get('POSTGRES_PORT', '5432'),
+        }
+    }
 else:
     DATABASE_PATH = BASE_DIR / 'db.sqlite3'
-
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': DATABASE_PATH,
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': DATABASE_PATH,
+        }
     }
-}
 
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
@@ -100,12 +121,18 @@ STATICFILES_DIRS = [BASE_DIR / 'static']
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
+# Persistent data (media, Chroma) — set DATA_DIR in Docker (e.g. /app/data)
+_data_dir = os.getenv('DATA_DIR')
+if _data_dir:
+    DATA_DIR = Path(_data_dir)
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+else:
+    DATA_DIR = BASE_DIR
+
 # Media files
 MEDIA_URL = '/media/'
-if os.getenv('RAILWAY_ENVIRONMENT'):
-    MEDIA_ROOT = '/app/data/media'
-else:
-    MEDIA_ROOT = BASE_DIR / 'media'
+MEDIA_ROOT = DATA_DIR / 'media'
+MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
 
 
 # Auth
@@ -120,16 +147,14 @@ LOGIN_REDIRECT_URL = 'dashboard'
 LOGOUT_REDIRECT_URL = 'landing'
 
 # RAG
+CHROMA_DB_PATH = DATA_DIR / 'chroma_db'
+Path(CHROMA_DB_PATH).mkdir(parents=True, exist_ok=True)
 
-if os.getenv('RAILWAY_ENVIRONMENT'):
-    CHROMA_DB_PATH = '/app/data/chroma_db'
-else:
-    CHROMA_DB_PATH = BASE_DIR / 'chroma_db'
 LLM_PROVIDER = os.getenv('LLM_PROVIDER', 'openai')
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', '')
 AGENT_MODEL = os.getenv('AGENT_MODEL', 'gpt-5.4-mini')
 AGENT_MAX_HISTORY = 10
-EMBEDDING_MODEL_NAME = 'paraphrase-multilingual-MiniLM-L12-v2'
+OPENAI_EMBEDDING_MODEL = os.getenv('OPENAI_EMBEDDING_MODEL', 'text-embedding-3-small')
 
 # Upload limits
 MAX_UPLOAD_SIZE = 10 * 1024 * 1024
