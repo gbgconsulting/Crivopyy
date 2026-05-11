@@ -132,27 +132,66 @@
     </div>
 </div>
 
-<!-- SCRIPT ADICIONADO: Lógica de Cópia e Feedback -->
 <script>
-    function copyPublicLink(url, button) {
-        navigator.clipboard.writeText(url).then(() => {
-            const icon = button.querySelector('i');
-            const originalIcon = icon.getAttribute('data-lucide');
-            
-            // Feedback visual de sucesso
-            button.classList.remove('text-gray-400');
-            button.classList.add('text-emerald-400', 'bg-emerald-500/10');
-            icon.setAttribute('data-lucide', 'check');
+    function copyPublicLinkFeedback(button) {
+        const icon = button.querySelector('i');
+        if (!icon) return;
+        const originalIcon = icon.getAttribute('data-lucide');
+        button.classList.remove('text-gray-400');
+        button.classList.add('text-emerald-400', 'bg-emerald-500/10');
+        icon.setAttribute('data-lucide', 'check');
+        if (typeof lucide !== 'undefined' && lucide.createIcons) {
             lucide.createIcons();
-
-            // Reverte o botão após 2 segundos
-            setTimeout(() => {
-                button.classList.remove('text-emerald-400', 'bg-emerald-500/10');
-                button.classList.add('text-gray-400');
-                icon.setAttribute('data-lucide', originalIcon);
+        }
+        setTimeout(() => {
+            button.classList.remove('text-emerald-400', 'bg-emerald-500/10');
+            button.classList.add('text-gray-400');
+            icon.setAttribute('data-lucide', originalIcon);
+            if (typeof lucide !== 'undefined' && lucide.createIcons) {
                 lucide.createIcons();
-            }, 2000);
-        });
+            }
+        }, 2000);
+    }
+
+    function copyPublicLinkFallback(text) {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        let ok = false;
+        try {
+            ok = document.execCommand('copy');
+        } catch (e) {
+            ok = false;
+        }
+        document.body.removeChild(ta);
+        return ok;
+    }
+
+    function copyPublicLink(url, button) {
+        const runFallback = () => copyPublicLinkFallback(url);
+
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+            navigator.clipboard.writeText(url).then(() => {
+                copyPublicLinkFeedback(button);
+            }).catch(() => {
+                if (runFallback()) {
+                    copyPublicLinkFeedback(button);
+                } else {
+                    window.prompt('Copie o link manualmente (Ctrl+C):', url);
+                }
+            });
+            return;
+        }
+        if (runFallback()) {
+            copyPublicLinkFeedback(button);
+        } else {
+            window.prompt('Copie o link manualmente (Ctrl+C):', url);
+        }
     }
 </script>
 {% endblock %}

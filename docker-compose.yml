@@ -28,8 +28,10 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-crivopy}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-crivopy}
       POSTGRES_DB: ${POSTGRES_DB:-crivopy}
+      GUNICORN_RELOAD: ${GUNICORN_RELOAD:-1}
       DATA_DIR: /app/data
     volumes:
+      - .:/app
       - app_data:/app/data
     depends_on:
       db:

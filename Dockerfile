@@ -20,4 +20,4 @@ RUN mkdir -p /app/data/media /app/data/chroma_db \
 
 EXPOSE 8000
 
-ENTRYPOINT ["/app/scripts/docker-entrypoint.sh"]
+ENTRYPOINT ["/bin/sh", "/app/scripts/docker-entrypoint.sh"]
