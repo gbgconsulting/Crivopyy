@@ -51,6 +51,31 @@ class Job(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    # --- NOVOS CAMPOS PARA INTEGRAÇÃO (ADICIONADOS AQUI) ---
+
+    # Task 8.1.2: External Mapping (Sólides / Outros ATS)
+    external_id = models.CharField(
+        max_length=255, 
+        blank=True, 
+        null=True, 
+        help_text='ID desta vaga no sistema externo (ex: ID da Sólides)'
+    )
+    external_source = models.CharField(
+        max_length=100, 
+        blank=True, 
+        null=True, 
+        help_text='Nome do sistema de origem (ex: solides)'
+    )
+
+    # Task 8.3.1: URL de destino para resultados
+    callback_url = models.URLField(
+        blank=True, 
+        null=True, 
+        help_text='URL do sistema que receberá as notas e resumos da IA'
+    )
+
+    # ------------------------------------------------------
+
     # Task 3.1.8: Meta configuration
     class Meta:
         ordering = ['-created_at']

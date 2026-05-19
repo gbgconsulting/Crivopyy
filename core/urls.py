@@ -17,6 +17,7 @@ urlpatterns = [
     path('documents/', include('documents.urls')),
     path('brain/', include('brain.urls')),
     path('chat/', include('chat.urls')),
+    path('integrations/', include('integrations.urls')),
 ]
 
 # 0.4.3 - Servir arquivos de mídia em ambiente de desenvolvimento

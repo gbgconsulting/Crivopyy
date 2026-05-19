@@ -379,4 +379,29 @@
 - [ ] **B.4** Escrever testes de integração para CRUD de vagas e documentos
 - [ ] **B.5** Configurar GitHub Actions para CI
 
----
+
+SPRINT 8 — Integrações e Ecossistema (ATS & Webhooks)
+Tarefa 8.1 — Preparação da Infraestrutura de Modelos
+Para que o Crivopy saiba qual vaga da Sólides corresponde a qual vaga no nosso banco, precisamos de mapeamento.
+
+8.1.1 Criar a app integrations (python manage.py startapp integrations).
+
+8.1.2 Adicionar campo external_id (CharField) e external_source (CharField, ex: 'solides') ao model Job na app hub.
+
+8.1.3 Criar model IntegrationLog para registrar as entradas e saídas de dados (payloads JSON) para fins de auditoria e depuração de DP.
+Tarefa 8.2 — Recebimento de Candidatos (Inbound: Sólides -> Crivopy)
+
+8.2.1 Criar View SolidesWebhookView (View baseada em classe, protegida por token no Header).
+
+8.2.2 Implementar a lógica de busca da vaga: Localizar o Job no Crivopy usando o ID da vaga enviado pela Sólides.
+
+8.2.3 Criar serviço FileDownloader: Uma função que recebe a URL do currículo enviada pela Sólides, faz o download do binário e salva como um FileField no nosso model Document.
+
+8.2.4 Automatização: Garantir que, ao salvar o Document vindo da integração, o status inicial seja pending (conforme o PRD).
+Tarefa 8.3 — Comunicação de Saída (Outbound: Crivopy -> Sistema de Testes)
+
+8.3.1 Adicionar campo callback_url ao model Job (URL para onde enviaremos as notas da IA).
+
+8.3.2 Criar o serviço OutboundWebhookService: Função que monta um JSON com: nome_candidato, email, score_ia, resumo_analise e o envia via POST para a callback_url.
+
+8.3.3 Implementar Signal post_save no model Analysis: Assim que o rag_status mudar para done, o sistema dispara automaticamente os dados para o sistema de testes/entrevistas cadastrado.

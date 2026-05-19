@@ -10,6 +10,7 @@ load_dotenv()
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
+
 def _env_csv(name, defaults):
     raw = os.getenv(name)
     if not raw or not raw.strip():
@@ -50,6 +51,7 @@ INSTALLED_APPS = [
     'documents',
     'hub',
     'users',
+    'integrations',
 ]
 
 MIDDLEWARE = [
@@ -173,3 +175,9 @@ DEFAULT_FROM_EMAIL = f'Crivopy <{os.getenv("EMAIL_HOST_USER", "noreply@crivopy.c
 SITE_URL = os.getenv('SITE_URL', 'http://127.0.0.1:8000')
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+# Token para chamadas à API da Sólides
+SOLIDES_API_TOKEN = os.getenv('SOLIDES_API_TOKEN', '')
+# Token para validar Webhooks vindo deles
+SOLIDES_INTEGRATION_TOKEN = os.getenv('SOLIDES_INTEGRATION_TOKEN', '')
+# core/settings.py
+SOLIDES_API_BASE_URL = 'https://api.solides.com/v1'
